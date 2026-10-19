@@ -11,7 +11,8 @@
 (function() {
   'use strict';
 
-  const DESKTOP_QUERY = window.matchMedia('(min-width: 1024px)');
+  // Десктопный интерфейс: окно не вытянуто вертикально и не уже 700px (совпадает с styles.css)
+  const DESKTOP_QUERY = window.matchMedia('(min-width: 700px) and (min-aspect-ratio: 7/10)');
 
   // Elements
   const body = document.body;
@@ -26,6 +27,7 @@
   const sendBtn = document.getElementById('sendBtn');
   const composerHint = document.getElementById('composerHint');
   const composerError = document.getElementById('composerError');
+  const topbarSwitcher = document.querySelector('.switcher--topbar');
 
   /* ------------------------------------------------------------------------
      Mobile sidebar
@@ -92,7 +94,8 @@
   overlay.addEventListener('click', closeSidebar);
 
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && isOpen) {
+    // Escape в меню чата, поле переименования или окне подтверждения закрывает их, а не панель
+    if (e.key === 'Escape' && isOpen && !isChatUiOpen()) {
       closeSidebar();
     }
   });
@@ -233,7 +236,9 @@
     '',
     'Пример: «Какой срок брони? нет данных».',
     '',
-    'Повтор после ошибки имитирует восстановление сервиса и даёт обычный ответ. Пустой вопрос не отправляется. Пока идёт обработка, отправка следующего вопроса недоступна. «Новый чат» создаёт пустой чат; перезагрузка страницы очищает всю переписку.'
+    'Повтор после ошибки имитирует восстановление сервиса и даёт обычный ответ. Пустой вопрос не отправляется. Пока идёт обработка, отправка следующего вопроса недоступна. «Новый чат» создаёт пустой чат; перезагрузка страницы очищает всю переписку.',
+    '',
+    'У чатов в списке есть меню «⋯» (на компьютере появляется при наведении, в телефонном виде видно всегда): «Переименовать» и «Удалить». Чат с перепиской удаляется после подтверждения.'
   ].join('\n');
 
   const chats = [
@@ -279,10 +284,15 @@
       selectChat(current.id);
       return;
     }
+    selectChat(addEmptyChat().id);
+  }
+
+  // Новый пустой чат сразу под чатом-инструкцией
+  function addEmptyChat() {
     chatCounter += 1;
     const chat = { id: 'chat-' + chatCounter, title: 'Чат ' + chatCounter, pending: false, messages: [] };
-    chats.splice(1, 0, chat);
-    selectChat(chat.id);
+    chats.splice(chats[0] && chats[0].id === 'guide' ? 1 : 0, 0, chat);
+    return chat;
   }
 
   /* ------------------------------------------------------------------------
@@ -420,16 +430,250 @@
     return node;
   }
 
-  function renderChatsList() {
+  // Список перерисовывается только при изменении состава, названий или выбора,
+  // чтобы приход ответа не сбрасывал открытое меню и наведение
+  let chatsListSignature = '';
+
+  function renderChatsList(force) {
+    const signature = JSON.stringify([chats.map(function(c) { return [c.id, c.title]; }), activeChatId, renamingChatId]);
+    if (!force && signature === chatsListSignature) return;
+    chatsListSignature = signature;
+    closeChatMenu({ restoreFocus: false });
+
     chatsList.replaceChildren.apply(chatsList, chats.map(function(chat) {
-      const item = el('li');
-      const button = el('button', 'chat-item' + (chat.id === activeChatId ? ' is-active' : ''), chat.title);
+      const isActive = chat.id === activeChatId;
+      const item = el('li', 'chat-row' + (chat.id === 'guide' ? '' : ' chat-row--actions'));
+      item.dataset.chatId = chat.id;
+
+      if (chat.id === renamingChatId) {
+        item.append(createRenameInput(chat, isActive));
+        return item;
+      }
+
+      const button = el('button', 'chat-item' + (isActive ? ' is-active' : ''));
       button.type = 'button';
-      if (chat.id === activeChatId) button.setAttribute('aria-current', 'true');
+      button.append(el('span', 'chat-item__title', chat.title));
+      if (isActive) button.setAttribute('aria-current', 'true');
       button.addEventListener('click', function() { selectChat(chat.id); });
       item.append(button);
+
+      // Чат-инструкцию не переименовываем и не удаляем: на неё ведёт подсказка под полем ввода
+      if (chat.id !== 'guide') {
+        const more = el('button', 'chat-row__more');
+        more.type = 'button';
+        more.setAttribute('aria-label', 'Действия с чатом «' + chat.title + '»');
+        more.setAttribute('aria-haspopup', 'menu');
+        more.setAttribute('aria-expanded', 'false');
+        more.setAttribute('aria-controls', 'chatMenu');
+        more.innerHTML = '<svg class="icon icon--16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">' +
+          '<circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>';
+        more.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (menuChatId === chat.id) {
+            closeChatMenu();
+          } else {
+            openChatMenu(chat.id, more);
+          }
+        });
+        item.append(more);
+      }
       return item;
     }));
+  }
+
+  /* ------------------------------------------------------------------------
+     Действия с чатом: меню «⋯», переименование, удаление
+     ------------------------------------------------------------------------ */
+  const chatMenu = document.getElementById('chatMenu');
+  const chatMenuItems = Array.prototype.slice.call(chatMenu.querySelectorAll('[role="menuitem"]'));
+  const deleteDialog = document.getElementById('deleteDialog');
+  const deleteDialogText = document.getElementById('deleteDialogText');
+  const CHAT_TITLE_MAX = 40;
+  let menuChatId = null;
+  let menuAnchor = null;
+  let renamingChatId = null;
+  let deletingChatId = null;
+
+  function isChatUiOpen() {
+    return menuChatId !== null || renamingChatId !== null || deleteDialog.open;
+  }
+
+  function rowOf(id) {
+    return chatsList.querySelector('[data-chat-id="' + id + '"]');
+  }
+
+  function openChatMenu(id, anchor) {
+    closeChatMenu({ restoreFocus: false });
+    menuChatId = id;
+    menuAnchor = anchor;
+    anchor.setAttribute('aria-expanded', 'true');
+    anchor.closest('.chat-row').classList.add('is-menu-open');
+    chatMenu.hidden = false;
+
+    // Под кнопкой «⋯», левый край меню на одной линии с левым краем кнопки.
+    // Не помещается справа — прижимается к краю экрана; не помещается снизу — открывается вверх
+    const a = anchor.getBoundingClientRect();
+    const gap = 4;
+    const edge = 8;
+    const left = Math.min(a.left, window.innerWidth - edge - chatMenu.offsetWidth);
+    let top = a.bottom + gap;
+    if (top + chatMenu.offsetHeight > window.innerHeight - edge) {
+      top = a.top - gap - chatMenu.offsetHeight;
+    }
+    chatMenu.style.left = Math.round(Math.max(edge, left)) + 'px';
+    chatMenu.style.top = Math.round(Math.max(edge, top)) + 'px';
+    chatMenuItems[0].focus();
+  }
+
+  function closeChatMenu(options) {
+    if (menuChatId === null) return;
+    const anchor = menuAnchor;
+    chatMenu.hidden = true;
+    menuChatId = null;
+    menuAnchor = null;
+    if (anchor) {
+      anchor.setAttribute('aria-expanded', 'false');
+      const row = anchor.closest('.chat-row');
+      if (row) row.classList.remove('is-menu-open');
+      if ((!options || options.restoreFocus !== false) && anchor.isConnected) anchor.focus();
+    }
+  }
+
+  chatMenu.addEventListener('click', function(e) {
+    const item = e.target.closest('[data-chat-action]');
+    if (!item) return;
+    const id = menuChatId;
+    closeChatMenu({ restoreFocus: false });
+    if (item.dataset.chatAction === 'rename') {
+      startRename(id);
+    } else {
+      requestDelete(id);
+    }
+  });
+
+  chatMenu.addEventListener('keydown', function(e) {
+    const index = chatMenuItems.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      chatMenuItems[(index + step + chatMenuItems.length) % chatMenuItems.length].focus();
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      chatMenuItems[e.key === 'Home' ? 0 : chatMenuItems.length - 1].focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeChatMenu();
+    } else if (e.key === 'Tab') {
+      // Меню вне боковой панели: фокус возвращается на «⋯», а не уходит на страницу под затемнением
+      e.preventDefault();
+      closeChatMenu();
+    }
+  });
+
+  // Клик мимо меню, прокрутка панели или изменение размера окна закрывают меню
+  document.addEventListener('pointerdown', function(e) {
+    if (menuChatId !== null && !chatMenu.contains(e.target) && e.target.closest('.chat-row__more') !== menuAnchor) {
+      closeChatMenu({ restoreFocus: false });
+    }
+  });
+  sidebar.addEventListener('scroll', function() { closeChatMenu({ restoreFocus: false }); }, { passive: true });
+  window.addEventListener('resize', function() { closeChatMenu({ restoreFocus: false }); });
+
+  function createRenameInput(chat, isActive) {
+    const input = el('input', 'chat-item chat-item--editing' + (isActive ? ' is-active' : ''));
+    input.type = 'text';
+    input.value = chat.title;
+    input.maxLength = CHAT_TITLE_MAX;
+    input.setAttribute('aria-label', 'Название чата');
+    input.autocomplete = 'off';
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        finishRename(chat.id, input.value, { restoreFocus: true });
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        finishRename(chat.id, null, { restoreFocus: true });
+      }
+    });
+    input.addEventListener('blur', function() {
+      finishRename(chat.id, input.value, { restoreFocus: false });
+    });
+    return input;
+  }
+
+  function startRename(id) {
+    renamingChatId = id;
+    renderChatsList(true);
+    const input = rowOf(id).querySelector('input');
+    input.focus();
+    input.select();
+  }
+
+  // value === null — отмена. Пустое название не принимается
+  function finishRename(id, value, options) {
+    if (renamingChatId !== id) return;
+    renamingChatId = null;
+    const chat = getChat(id);
+    const title = value === null ? '' : value.trim().slice(0, CHAT_TITLE_MAX);
+    if (chat && title) chat.title = title;
+    renderChatsList(true);
+    if (options.restoreFocus) {
+      const row = rowOf(id);
+      if (row) row.querySelector('.chat-item').focus();
+    }
+  }
+
+  // Чат с перепиской удаляется после подтверждения, пустой — сразу
+  function requestDelete(id) {
+    const chat = getChat(id);
+    if (!chat) return;
+    if (chat.messages.length === 0) {
+      deleteChat(id);
+      return;
+    }
+    deletingChatId = id;
+    deleteDialogText.textContent = 'Чат «' + chat.title + '» и его переписка будут удалены. Восстановить их будет нельзя.';
+    deleteDialog.returnValue = '';
+    deleteDialog.showModal();
+  }
+
+  deleteDialog.addEventListener('close', function() {
+    const id = deletingChatId;
+    deletingChatId = null;
+    if (deleteDialog.returnValue === 'confirm') {
+      deleteChat(id);
+    } else {
+      const row = rowOf(id);
+      const more = row && row.querySelector('.chat-row__more');
+      if (more) more.focus();
+    }
+  });
+
+  // Клик по затемнению вокруг окна — отмена
+  deleteDialog.addEventListener('click', function(e) {
+    if (e.target === deleteDialog) deleteDialog.close('cancel');
+  });
+
+  function deleteChat(id) {
+    const index = chats.findIndex(function(chat) { return chat.id === id; });
+    if (index === -1) return;
+    chats.splice(index, 1);
+
+    const isRegular = function(chat) { return chat.id !== 'guide'; };
+    if (activeChatId === id) {
+      // Ближайший обычный чат: следующий, иначе предыдущий; если обычных нет — новый пустой
+      const next = chats.slice(index).find(isRegular) || chats.slice(0, index).reverse().find(isRegular);
+      activeChatId = next ? next.id : addEmptyChat().id;
+    } else if (!chats.some(isRegular)) {
+      addEmptyChat();
+    }
+
+    hideInputError();
+    render();
+    const row = rowOf(activeChatId);
+    if (row) row.querySelector('.chat-item').focus();
   }
 
   function render() {
@@ -437,10 +681,48 @@
     main.dataset.state = chat.messages.length ? 'chat' : 'empty';
     sendBtn.disabled = chat.pending;
     renderChatsList();
-    conversation.replaceChildren.apply(conversation, chat.messages.map(function(message, index) {
+    const inner = el('div', 'conversation__inner');
+    inner.append.apply(inner, chat.messages.map(function(message, index) {
       return renderMessage(message, index, chat);
     }));
+    conversation.replaceChildren(inner);
+    measureChatChrome();
     conversation.scrollTop = conversation.scrollHeight;
+    updateFades();
+  }
+
+  /* ------------------------------------------------------------------------
+     Переписка на весь экран: зоны под шапкой и полем ввода, затухание краёв
+     ------------------------------------------------------------------------ */
+  // Высота зоны под шапкой (mobile) и под полем ввода с подсказкой — для отступов
+  // сообщений и сплошного фона под этими элементами (см. .conversation в styles.css)
+  function measureChatChrome() {
+    if (main.dataset.state !== 'chat') return;
+    const top = DESKTOP_QUERY.matches ? 0 : topbarSwitcher.getBoundingClientRect().bottom;
+    const bottom = window.innerHeight - composer.getBoundingClientRect().top;
+    conversation.style.setProperty('--chat-top', Math.round(top) + 'px');
+    conversation.style.setProperty('--chat-bottom', Math.round(bottom) + 'px');
+  }
+
+  function updateFades() {
+    const maxScroll = conversation.scrollHeight - conversation.clientHeight;
+    conversation.classList.toggle('can-scroll-up', conversation.scrollTop > 1);
+    conversation.classList.toggle('can-scroll-down', conversation.scrollTop < maxScroll - 1);
+  }
+
+  conversation.addEventListener('scroll', updateFades, { passive: true });
+
+  window.addEventListener('resize', function() {
+    measureChatChrome();
+    updateFades();
+  });
+
+  // Шрифт меняет высоту подсказки под полем ввода
+  if (document.fonts) {
+    document.fonts.ready.then(function() {
+      measureChatChrome();
+      updateFades();
+    });
   }
 
   /* ------------------------------------------------------------------------

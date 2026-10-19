@@ -60,6 +60,22 @@
 
   <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
+  <!-- Меню действий с чатом: открывается кнопкой «⋯» правее и ниже неё, не перекрывая список -->
+  <div class="chat-menu" id="chatMenu" role="menu" aria-label="Действия с чатом" hidden>
+    <button class="chat-menu__item" type="button" role="menuitem" data-chat-action="rename" tabindex="-1">
+      <svg class="icon icon--16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10.5 2.5l3 3L5.5 13.5H2.5v-3z"/>
+      </svg>
+      Переименовать
+    </button>
+    <button class="chat-menu__item chat-menu__item--danger" type="button" role="menuitem" data-chat-action="delete" tabindex="-1">
+      <svg class="icon icon--16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.5 6.5v4.5M9.5 6.5v4.5"/>
+      </svg>
+      Удалить
+    </button>
+  </div>
+
   <main class="main" id="main" data-state="empty">
     <div class="main__column">
       <!-- Стартовое состояние -->
@@ -109,6 +125,18 @@
       </p>
     </div>
   </main>
+
+  <!-- Подтверждение удаления чата с перепиской -->
+  <dialog class="dialog" id="deleteDialog" aria-labelledby="deleteDialogTitle" aria-describedby="deleteDialogText">
+    <form method="dialog">
+      <h2 class="dialog__title" id="deleteDialogTitle">Удалить чат?</h2>
+      <p class="dialog__text" id="deleteDialogText"></p>
+      <div class="dialog__actions">
+        <button class="btn-secondary" type="submit" value="cancel">Отмена</button>
+        <button class="btn-danger" type="submit" value="confirm">Удалить</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="script.js"></script>
 </body>
