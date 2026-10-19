@@ -2,141 +2,113 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BRAND — Chat Assistant</title>
+  <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Mobile header / hamburger menu trigger -->
-  <header class="header header--mobile" role="banner">
-    <button class="header__btn header__btn--menu" aria-label="Открыть меню" aria-expanded="false" aria-controls="sidebar">
-      <svg class="icon icon--menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path d="M3 12h18M3 6h18M3 18h18"/>
+  <!--
+    Предварительный интерфейс по макету (Web/figma-nodes.json, view.fig).
+    Демо-режим: ответы имитирует заглушка API в script.js, база знаний не подключена.
+    Выбор параметров — визуальная заглушка. Чаты живут только в памяти вкладки.
+    Состояния экрана: data-state="empty" (стартовый) и "chat" (переписка).
+  -->
+
+  <!-- Mobile: верхняя панель -->
+  <header class="topbar" role="banner">
+    <button class="icon-btn" id="menuBtn" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="sidebar">
+      <svg class="icon icon--14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M1 2h12M1 7h12M1 12h12"/>
       </svg>
     </button>
-    <span class="header__brand">BRAND</span>
-    <button class="header__btn header__btn--plus" aria-label="Новый чат">
-      <svg class="icon icon--plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path d="M12 5v14M5 12h14"/>
+    <span class="brand brand--topbar">BRAND</span>
+    <button class="icon-btn" type="button" data-action="new-chat" aria-label="Новый чат">
+      <svg class="icon icon--14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M7 1v12M1 7h12"/>
       </svg>
     </button>
   </header>
 
-  <!-- Desktop sidebar (hidden on mobile) -->
-  <aside class="sidebar" id="sidebar" role="complementary" aria-label="Навигация">
-    <div class="sidebar__content">
-      <span class="sidebar__brand">BRAND</span>
-      
-      <nav class="sidebar__nav" aria-label="Основная навигация">
-        <div class="switcher" role="tablist" aria-label="Режим работы">
-          <button class="switcher__item switcher__item--active" role="tab" aria-selected="true" aria-controls="panel-ask">Спросить</button>
-          <button class="switcher__item" role="tab" aria-selected="false" aria-controls="panel-sell">Продавать</button>
-        </div>
-        
-        <button class="btn btn--primary btn--full" type="button">
-          <span class="btn__text">Новый чат</span>
-        </button>
-      </nav>
+  <!-- Mobile: переключатель режима под панелью -->
+  <div class="switcher switcher--topbar" role="group" aria-label="Режим работы">
+    <button class="switcher__item is-active" type="button" data-mode="ask" aria-pressed="true">Спросить</button>
+    <button class="switcher__item" type="button" data-mode="sell" aria-pressed="false">Продавать</button>
+  </div>
 
-      <section class="sidebar__chats" aria-labelledby="chats-title">
-        <h2 class="sidebar__chats-title" id="chats-title">Доступные чаты</h2>
-        <ul class="chats-list" role="list">
-          <li class="chats-list__item chats-list__item--active" role="listitem">
-            <button class="chat-btn" type="button">Чат 1</button>
-          </li>
-          <li class="chats-list__item" role="listitem">
-            <button class="chat-btn" type="button">Чат 2</button>
-          </li>
-          <li class="chats-list__item" role="listitem">
-            <button class="chat-btn" type="button">Чат 3</button>
-          </li>
-          <li class="chats-list__item" role="listitem">
-            <button class="chat-btn" type="button">Чат 4</button>
-          </li>
-          <li class="chats-list__item" role="listitem">
-            <button class="chat-btn" type="button">Чат 5</button>
-          </li>
-        </ul>
-      </section>
+  <!-- Боковая панель: постоянная на desktop, выдвижная на mobile -->
+  <aside class="sidebar" id="sidebar" aria-label="Навигация">
+    <span class="brand brand--sidebar">BRAND</span>
+
+    <div class="sidebar__actions">
+      <div class="switcher" role="group" aria-label="Режим работы">
+        <button class="switcher__item is-active" type="button" data-mode="ask" aria-pressed="true">Спросить</button>
+        <button class="switcher__item" type="button" data-mode="sell" aria-pressed="false">Продавать</button>
+      </div>
+      <button class="btn-gradient" type="button" data-action="new-chat">Новый чат</button>
     </div>
+
+    <nav class="chats" aria-labelledby="chatsTitle">
+      <h2 class="chats__title" id="chatsTitle">Доступные чаты</h2>
+      <!-- Пункты списка формирует script.js -->
+      <ul class="chats__list" id="chatsList"></ul>
+    </nav>
   </aside>
 
-  <!-- Overlay for mobile sidebar -->
   <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
-  <main class="main" role="main">
-    <div class="container">
-      <!-- Page title -->
-      <h1 class="page-title">С чего начнем работу?</h1>
+  <main class="main" id="main" data-state="empty">
+    <div class="main__column">
+      <!-- Стартовое состояние -->
+      <section class="welcome" aria-labelledby="welcomeTitle">
+        <h1 class="welcome__title" id="welcomeTitle">С чего начнем работу?</h1>
 
-      <!-- Switcher (mobile only, desktop has it in sidebar) -->
-      <div class="switcher switcher--mobile" role="tablist" aria-label="Режим работы">
-        <button class="switcher__item switcher__item--active" role="tab" aria-selected="true" aria-controls="panel-ask-mobile">Спросить</button>
-        <button class="switcher__item" role="tab" aria-selected="false" aria-controls="panel-sell-mobile">Продавать</button>
-      </div>
+        <div class="selectors" role="group" aria-label="Параметры вопроса">
+          <button class="selector selector--tall" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="selector__text is-placeholder">Выбор параметра</span>
+            <svg class="icon icon--16 selector__chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 6l4 4 4-4"/>
+            </svg>
+          </button>
+          <button class="selector selector--tall" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="selector__text">Lorem ipsum</span>
+            <svg class="icon icon--16 selector__chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 6l4 4 4-4"/>
+            </svg>
+          </button>
+          <button class="selector selector--wide" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="selector__text is-placeholder">Выбор параметра</span>
+            <svg class="icon icon--16 selector__chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 6l4 4 4-4"/>
+            </svg>
+          </button>
+        </div>
+      </section>
 
-      <!-- Selectors grid -->
-      <div class="selectors" role="group" aria-label="Параметры поиска">
-        <button class="selector" type="button" aria-haspopup="listbox" aria-expanded="false">
-          <span class="selector__text">Выбор параметра</span>
-          <svg class="icon icon--chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
-        </button>
-        <button class="selector" type="button" aria-haspopup="listbox" aria-expanded="false">
-          <span class="selector__text">Lorem ipsum</span>
-          <svg class="icon icon--chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
-        </button>
-        <button class="selector" type="button" aria-haspopup="listbox" aria-expanded="false">
-          <span class="selector__text">Выбор параметра</span>
-          <svg class="icon icon--chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
-        </button>
-      </div>
+      <!-- Переписка: сообщения формирует script.js -->
+      <section class="conversation" id="conversation" role="log" aria-live="polite" aria-label="Сообщения"></section>
 
-      <!-- Input message field -->
-      <form class="input-message" role="search" aria-label="Ввод вопроса">
-        <label for="question-input" class="visually-hidden">Ваш вопрос</label>
-        <input 
-          type="text" 
-          id="question-input" 
-          class="input-message__field" 
-          placeholder="Задайте вопрос"
-          autocomplete="off"
-        >
-        <button class="input-message__btn" type="submit" aria-label="Отправить вопрос">
-          <svg class="icon icon--arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
+      <form class="composer" id="composer" aria-label="Ввод вопроса" novalidate>
+        <label for="questionInput" class="visually-hidden">Ваш вопрос</label>
+        <input type="text" id="questionInput" class="composer__field" placeholder="Задайте вопрос" autocomplete="off" aria-describedby="composerHint">
+        <button class="composer__send" id="sendBtn" type="submit" aria-label="Отправить вопрос">
+          <svg class="icon icon--18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3.5 9h11M9 3.5L14.5 9 9 14.5"/>
           </svg>
         </button>
       </form>
+
+      <!-- Подсказка для проверяющего; на время ошибки ввода заменяется сообщением -->
+      <p class="composer-hint" id="composerHint" role="status">
+        <span class="composer-hint__text">Демо: ответы имитируются.</span>
+        <button class="composer-hint__link" type="button" data-action="open-guide">Кодовые слова для проверки</button>
+        <span class="composer-hint__error" id="composerError"></span>
+      </p>
     </div>
   </main>
-
-  <!-- Mobile footer input (visible only on mobile) -->
-  <footer class="footer footer--mobile" role="contentinfo">
-    <form class="input-message input-message--footer" role="search" aria-label="Ввод вопроса">
-      <label for="question-input-footer" class="visually-hidden">Ваш вопрос</label>
-      <input 
-        type="text" 
-        id="question-input-footer" 
-        class="input-message__field" 
-        placeholder="Задайте вопрос"
-        autocomplete="off"
-      >
-      <button class="input-message__btn" type="submit" aria-label="Отправить вопрос">
-        <svg class="icon icon--arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </button>
-    </form>
-  </footer>
 
   <script src="script.js"></script>
 </body>
