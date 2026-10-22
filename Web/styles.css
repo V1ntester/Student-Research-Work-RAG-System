@@ -1,0 +1,1119 @@
+/* ==========================================================================
+   Design Tokens
+   Значения сняты с макета (view.fig / figma-nodes.json):
+   mobile — фреймы 430×932 «iPhone 14 & 15 Pro Max - 4/6»,
+   desktop — фреймы 1440×1024 «Desktop - 1/2».
+   ========================================================================== */
+:root {
+  /* Палитра макета */
+  --color-primary-dark: #123A63;
+  --color-text: #1E293B;
+  --color-primary: #2C6EA6;
+  --color-muted: #9CA3AF;
+  --color-page: #F5F6F8;
+  --color-surface: #FFFFFF;
+  --color-title: #000000;
+  --color-danger: #B42318;
+
+  --gradient-primary: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+
+  /*
+    Все размеры заданы в «пикселях макета» × --u. На desktop --u = 1px,
+    на mobile --u задаёт масштаб (см. «Адаптация» ниже).
+  */
+  --u: 1px;
+
+  /* Радиусы */
+  --radius-switcher-item: calc(6 * var(--u));
+  --radius-field: calc(8 * var(--u));
+  --radius-control: calc(16 * var(--u));
+
+  /* Размеры */
+  --control-height: calc(50 * var(--u));
+  --sidebar-width: calc(285 * var(--u));
+  --sidebar-inner-width: calc(251 * var(--u));
+  --column-width: 590px;
+  --switcher-width: calc(251 * var(--u));
+  --selector-tall-height: calc(101 * var(--u));
+  --chat-item-height: calc(38 * var(--u));
+  --message-max-width: calc(540 * var(--u));
+
+  /* Отступы. --gutter — боковой отступ mobile; содержимое не шире 600 «пикселей макета» */
+  --gutter: max(calc(30 * var(--u)), (100vw - 600 * var(--u)) / 2);
+  --space-10: calc(10 * var(--u));
+  --space-12: calc(12 * var(--u));
+  --space-16: calc(16 * var(--u));
+  --space-20: calc(20 * var(--u));
+  --space-40: calc(40 * var(--u));
+
+  /* Типографика (Roboto, line-height 100% в макете = normal ≈ 1.172).
+     Мелкий текст не становится меньше порога читаемости при уменьшении */
+  --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --line-height: 1.172;
+
+  --fs-brand: calc(24 * var(--u));
+  --fs-title: calc(24 * var(--u));
+  --fs-switcher: calc(15 * var(--u));
+  --fw-switcher: 400;
+  --fs-selector: calc(14 * var(--u));
+  --fs-input: calc(15 * var(--u));
+  --fw-input: 400;
+  --fs-message: max(13px, calc(14 * var(--u)));
+  --fs-small: max(11px, calc(12 * var(--u)));
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  /* Полоса прокрутки: тонкая, дорожка цвета фона, бегунок серый */
+  --scrollbar-size: 8px;
+  --scrollbar-track: var(--color-page);
+  --scrollbar-thumb: #B4BAC3;
+  --scrollbar-thumb-hover: var(--color-muted);
+}
+
+/* ==========================================================================
+   Адаптация: интерфейс выбирается по форме окна, а не по разрешению
+   - Телефонный: окно вытянуто вертикально, как телефон (ширина/высота < 0,7).
+     Макет 430×932 масштабируется целиком по ширине окна: кнопки, отступы,
+     иконки, текст, боковое меню. Не меньше 0,88 (кнопки ≥ 44px).
+   - Десктопный: во всех остальных случаях.
+   - Окно уже 700px, но не вытянутое (рядом с десктопом не помещается боковая
+     панель): телефонный интерфейс, масштаб подбирается и по высоте окна.
+   Работает в обычном браузере: достаточно изменить размер окна.
+   ========================================================================== */
+@media (max-aspect-ratio: 699/1000) {
+  :root {
+    --u: max(0.88px, 100vw / 430);
+  }
+}
+
+@media (max-width: 699px) and (min-aspect-ratio: 7/10) {
+  :root {
+    --u: max(0.88px, min(100vw / 430, 100vh / 600));
+  }
+}
+
+@media (min-width: 700px) and (min-aspect-ratio: 7/10) {
+  :root {
+    --u: 1px;
+    --fs-title: 32px;
+    --fs-selector: 15px;
+    --fs-input: 16px;
+    --fw-input: 500;
+    --fs-message: 15px;
+    /* Широкие экраны (16:9 и шире): колонка сохраняет пропорцию макета 1440×1024 —
+       590 из 1155 px основной части (51,1%). Не уже 590 px, не шире 800 px,
+       чтобы строки ответа оставались удобными для чтения */
+    --column-width: clamp(590px, (100vw - var(--sidebar-width)) * 0.511, 800px);
+    /* Сообщения — 540 из 590 px колонки в макете */
+    --message-max-width: 91.5%;
+  }
+}
+
+/* ==========================================================================
+   Reset & Base
+   ========================================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* Высота экрана фиксирована: прокручивается область сообщений, поле ввода остаётся внизу */
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  /* Снизу 30px макета минус 20px подсказки демо-режима под полем ввода.
+     Боковой отступ задают блоки внутри: .main занимает всю ширину экрана,
+     чтобы полоса прокрутки переписки стояла у края */
+  padding:
+    calc(30 * var(--u) + env(safe-area-inset-top))
+    0
+    calc(10 * var(--u) + env(safe-area-inset-bottom));
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: var(--line-height);
+  color: var(--color-text);
+  background-color: var(--color-page);
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+ul {
+  list-style: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ==========================================================================
+   Icons
+   ========================================================================== */
+.icon {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.icon--14 { width: calc(14 * var(--u)); height: calc(14 * var(--u)); }
+.icon--16 { width: calc(16 * var(--u)); height: calc(16 * var(--u)); }
+.icon--18 { width: calc(18 * var(--u)); height: calc(18 * var(--u)); }
+
+/* ==========================================================================
+   Brand
+   ========================================================================== */
+.brand {
+  font-weight: 700;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.brand--topbar {
+  flex: 1;
+  font-size: var(--fs-brand);
+  text-align: center;
+}
+
+.brand--sidebar {
+  font-size: calc(36 * var(--u));
+  text-align: center;
+}
+
+/* ==========================================================================
+   Gradient controls: icon buttons, «Новый чат»
+   ========================================================================== */
+.icon-btn,
+.btn-gradient {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-height);
+  border-radius: var(--radius-control);
+  background: var(--gradient-primary);
+  color: var(--color-surface);
+  transition: opacity var(--transition-fast);
+}
+
+.icon-btn {
+  width: var(--control-height);
+  flex-shrink: 0;
+}
+
+.btn-gradient {
+  width: 100%;
+  font-size: calc(16 * var(--u));
+  font-weight: 500;
+}
+
+.icon-btn:hover,
+.btn-gradient:hover {
+  opacity: 0.9;
+}
+
+.icon-btn:active,
+.btn-gradient:active {
+  opacity: 0.8;
+}
+
+/* ==========================================================================
+   Topbar (mobile)
+   ========================================================================== */
+.topbar {
+  padding: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  height: var(--control-height);
+}
+
+/* ==========================================================================
+   Switcher «Спросить / Продавать»
+   ========================================================================== */
+.switcher {
+  display: flex;
+  gap: var(--space-10);
+  width: var(--switcher-width);
+  height: var(--control-height);
+  padding: var(--space-10);
+  border-radius: var(--radius-control);
+  background: var(--gradient-primary);
+}
+
+.switcher--topbar {
+  flex-shrink: 0;
+  margin: var(--space-40) auto 0;
+}
+
+.switcher__item {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-switcher-item);
+  font-size: var(--fs-switcher);
+  font-weight: var(--fw-switcher);
+  color: var(--color-surface);
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.switcher__item:not(.is-active):hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.switcher__item.is-active {
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+}
+
+.switcher__item:focus-visible {
+  outline-color: var(--color-surface);
+  outline-offset: 1px;
+}
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+.sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-40);
+  width: var(--sidebar-width);
+  max-width: 85vw;
+  padding: var(--space-40) 0;
+  overflow-y: auto;
+  background: var(--color-surface);
+  /* Выдвижная панель на mobile: скрыта и недоступна для фокуса, пока закрыта */
+  visibility: hidden;
+  transform: translateX(-100%);
+  transition: transform var(--transition-normal), visibility 0s linear var(--transition-normal);
+}
+
+.sidebar--open {
+  visibility: visible;
+  transform: translateX(0);
+  box-shadow: 4px 0 24px rgba(18, 58, 99, 0.12);
+  transition: transform var(--transition-normal), visibility 0s;
+}
+
+.sidebar__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  width: var(--sidebar-inner-width);
+  max-width: calc(100% - 2 * var(--space-16));
+}
+
+.sidebar__actions .switcher {
+  width: 100%;
+  --fs-switcher: calc(16 * var(--u));
+  --fw-switcher: 500;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-normal), visibility 0s linear var(--transition-normal);
+}
+
+.sidebar-overlay--visible {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--transition-normal), visibility 0s;
+}
+
+body.sidebar-open {
+  overflow: hidden;
+}
+
+/* Список чатов */
+.chats {
+  width: var(--sidebar-inner-width);
+  max-width: calc(100% - 2 * var(--space-16));
+}
+
+.chats__title {
+  margin-bottom: var(--space-12);
+  font-size: calc(15 * var(--u));
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+.chats__list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+}
+
+.chat-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--chat-item-height);
+  padding: var(--space-10) var(--space-12);
+  border-radius: var(--radius-control);
+  background: var(--color-page);
+  font-size: calc(15 * var(--u));
+  font-weight: 500;
+  color: var(--color-text);
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.chat-item:not(.is-active):hover {
+  background: #ECEEF2;
+}
+
+/* ==========================================================================
+   Пункт списка чатов с действиями: «⋯» справа, меню, переименование
+   ========================================================================== */
+.chat-row {
+  position: relative;
+}
+
+.chat-item__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Место под кнопку «⋯», чтобы длинное название не уходило под неё */
+.chat-row--actions .chat-item {
+  padding-right: calc(40 * var(--u));
+}
+
+.chat-row__more {
+  position: absolute;
+  top: 50%;
+  right: calc(6 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(28 * var(--u));
+  height: calc(28 * var(--u));
+  border-radius: calc(10 * var(--u));
+  color: var(--color-muted);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+}
+
+/* Видна при наведении на пункт, при фокусе с клавиатуры и пока открыто меню */
+.chat-row:hover .chat-row__more,
+.chat-row:focus-within .chat-row__more,
+.chat-row.is-menu-open .chat-row__more {
+  opacity: 1;
+}
+
+/* В телефонном интерфейсе (всё, кроме десктопного) и на сенсорных экранах
+   кнопка видна всегда: наведения там нет или оно неестественно */
+@media not all and (min-width: 700px) and (min-aspect-ratio: 7/10) {
+  .chat-row__more {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  .chat-row__more {
+    opacity: 1;
+  }
+}
+
+.chat-row__more:hover,
+.chat-row.is-menu-open .chat-row__more {
+  background: rgba(30, 41, 59, 0.08);
+  color: var(--color-text);
+}
+
+/* У активного чата — белая на градиенте */
+.chat-item.is-active + .chat-row__more {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.chat-item.is-active + .chat-row__more:hover,
+.chat-row.is-menu-open .chat-item.is-active + .chat-row__more {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--color-surface);
+}
+
+.chat-item.is-active + .chat-row__more:focus-visible {
+  outline-color: var(--color-surface);
+}
+
+/* Поле переименования на месте названия (селектор сильнее правил активного пункта и наведения) */
+.chat-row .chat-item.chat-item--editing {
+  border: none;
+  outline: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: inset 0 0 0 calc(2 * var(--u)) rgba(44, 110, 166, 0.45);
+  cursor: text;
+}
+
+/* Меню действий: на уровне страницы, над боковой панелью и затемнением */
+.chat-menu {
+  position: fixed;
+  z-index: 250;
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--u));
+  min-width: calc(170 * var(--u));
+  padding: calc(6 * var(--u));
+  border-radius: calc(12 * var(--u));
+  background: var(--color-surface);
+  box-shadow: 0 calc(8 * var(--u)) calc(24 * var(--u)) rgba(18, 58, 99, 0.16), 0 1px 3px rgba(18, 58, 99, 0.08);
+}
+
+.chat-menu[hidden] {
+  display: none;
+}
+
+.chat-menu__item {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  width: 100%;
+  padding: calc(9 * var(--u)) calc(10 * var(--u));
+  border-radius: var(--radius-field);
+  font-size: calc(15 * var(--u));
+  color: var(--color-text);
+  text-align: left;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast);
+}
+
+.chat-menu__item .icon {
+  color: var(--color-muted);
+}
+
+.chat-menu__item:hover,
+.chat-menu__item:focus-visible {
+  outline: none;
+  background: var(--color-page);
+}
+
+.chat-menu__item--danger,
+.chat-menu__item--danger .icon {
+  color: var(--color-danger);
+}
+
+.chat-menu__item--danger:hover,
+.chat-menu__item--danger:focus-visible {
+  background: rgba(180, 35, 24, 0.07);
+}
+
+/* ==========================================================================
+   Окно подтверждения
+   ========================================================================== */
+.dialog {
+  width: min(calc(380 * var(--u)), calc(100vw - 2 * var(--space-16)));
+  margin: auto;
+  padding: calc(24 * var(--u));
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 calc(16 * var(--u)) calc(48 * var(--u)) rgba(18, 58, 99, 0.22);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.dialog__title {
+  margin-bottom: calc(8 * var(--u));
+  font-size: calc(20 * var(--u));
+  font-weight: 500;
+}
+
+.dialog__text {
+  font-size: calc(15 * var(--u));
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-10);
+  margin-top: calc(24 * var(--u));
+}
+
+.btn-secondary,
+.btn-danger {
+  height: calc(40 * var(--u));
+  padding: 0 var(--space-16);
+  border-radius: var(--radius-field);
+  font-size: calc(15 * var(--u));
+  font-weight: 500;
+  transition: background-color var(--transition-fast);
+}
+
+.btn-secondary {
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-secondary:hover {
+  background: rgba(44, 110, 166, 0.08);
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  color: var(--color-surface);
+}
+
+.btn-danger:hover {
+  background: #9A1E14;
+}
+
+.chat-item.is-active {
+  background: var(--gradient-primary);
+  color: var(--color-surface);
+}
+
+/* ==========================================================================
+   Main area
+   ========================================================================== */
+.main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* Прокрутка стартового экрана на очень низких экранах; по горизонтали — никогда */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.main__column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0 var(--gutter);
+}
+
+.main[data-state="empty"] .conversation,
+.main[data-state="chat"] .welcome {
+  display: none;
+}
+
+/* Стартовое состояние; на mobile прижато к нижнему краю экрана */
+.welcome {
+  margin-top: auto;
+}
+
+.welcome__title {
+  margin: var(--space-40) 0 var(--space-20);
+  font-size: var(--fs-title);
+  font-weight: 500;
+  color: var(--color-title);
+  text-align: center;
+}
+
+/* ==========================================================================
+   Selectors (заглушки выбора параметров)
+   ========================================================================== */
+.selectors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-10);
+}
+
+.selector {
+  display: flex;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--color-surface);
+  font-size: var(--fs-selector);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.selector--tall {
+  align-items: flex-end;
+  height: var(--selector-tall-height);
+}
+
+.selector--tall .selector__text {
+  align-self: flex-start;
+}
+
+.selector--wide {
+  grid-column: 1 / -1;
+  align-items: center;
+  height: var(--control-height);
+}
+
+.selector__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selector--wide .selector__text {
+  white-space: nowrap;
+}
+
+.selector__text.is-placeholder,
+.selector__chevron {
+  color: var(--color-muted);
+}
+
+/* ==========================================================================
+   Conversation (демо-сообщения)
+   ========================================================================== */
+/*
+  Область прокрутки переписки занимает весь экран (на desktop — всю часть справа
+  от боковой панели), поэтому полоса прокрутки идёт от верхнего края до нижнего.
+  Шапка и поле ввода лежат поверх неё. Высоты зон под ними (--chat-top,
+  --chat-bottom) измеряет script.js. Сообщения при прокрутке уходят под шапку и
+  поле ввода: там фон сплошной, на границе — плавное затухание (--chat-fade).
+*/
+.conversation {
+  --chat-fade: calc(28 * var(--u));
+  --chat-gap-top: calc(28 * var(--u));
+  --conversation-inline: var(--gutter);
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--conversation-inline);
+  /* Место под полосу зарезервировано всегда, чтобы текст не сдвигался при её появлении */
+  scrollbar-gutter: stable;
+}
+
+/* С мышью полоса занимает место: правый отступ уменьшается на её ширину,
+   чтобы края сообщений совпадали с краем поля ввода. На сенсорных экранах
+   полоса накладывается поверх содержимого и места не занимает */
+@media (pointer: fine) {
+  .conversation {
+    padding-right: calc(var(--conversation-inline) - var(--scrollbar-size));
+  }
+}
+
+/* Сообщения. Короткая переписка прижата к полю ввода, как в макете */
+.conversation__inner {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-20);
+  padding:
+    calc(var(--chat-top, 0px) + var(--chat-gap-top))
+    0
+    calc(var(--chat-bottom, 0px) + var(--space-40));
+}
+
+/* Сплошной фон под шапкой и полем ввода + затухание на границе видимой части.
+   Липкие слои лежат внутри области прокрутки и не перекрывают полосу */
+.conversation::before,
+.conversation::after {
+  content: "";
+  position: sticky;
+  z-index: 1;
+  flex: 0 0 auto;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.conversation::before {
+  top: 0;
+  height: calc(var(--chat-top, 0px) + var(--chat-fade));
+  margin-bottom: calc(-1 * (var(--chat-top, 0px) + var(--chat-fade)));
+  background: linear-gradient(to bottom,
+    var(--color-page) var(--chat-top, 0px),
+    rgb(245 246 248 / 0) 100%);
+}
+
+.conversation::after {
+  bottom: 0;
+  height: calc(var(--chat-bottom, 0px) + var(--chat-fade));
+  margin-top: calc(-1 * (var(--chat-bottom, 0px) + var(--chat-fade)));
+  background: linear-gradient(to top,
+    var(--color-page) var(--chat-bottom, 0px),
+    rgb(245 246 248 / 0) 100%);
+}
+
+/* Затухание видно, только когда в эту сторону есть что прокручивать */
+.conversation.can-scroll-up::before,
+.conversation.can-scroll-down::after {
+  opacity: 1;
+}
+
+/* Шапка и поле ввода — над областью прокрутки */
+.topbar,
+.switcher--topbar,
+.composer,
+.composer-hint {
+  position: relative;
+  z-index: 1;
+}
+
+/* В режиме переписки поле ввода прижато к низу */
+.main[data-state="chat"] .composer {
+  margin-top: auto;
+}
+
+.message {
+  max-width: min(var(--message-max-width), calc(100% - 32 * var(--u)));
+  font-size: var(--fs-message);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.message--question {
+  align-self: flex-end;
+  padding: var(--space-12) var(--space-10);
+  border-radius: var(--radius-field) var(--radius-field) 0 var(--radius-field);
+  background: var(--color-surface);
+}
+
+.message--answer {
+  align-self: flex-start;
+}
+
+/* Подпись исхода словами (REQ-016): тип результата, база, пометка демо */
+.message__meta {
+  display: block;
+  margin-bottom: calc(6 * var(--u));
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--color-muted);
+  white-space: normal;
+}
+
+.message--error .message__meta {
+  color: var(--color-danger);
+}
+
+.message__retry {
+  display: inline-flex;
+  align-items: center;
+  margin-top: var(--space-10);
+  padding: calc(6 * var(--u)) var(--space-12);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-field);
+  font-size: max(13px, calc(14 * var(--u)));
+  font-weight: 500;
+  color: var(--color-primary);
+  transition: background-color var(--transition-fast);
+}
+
+.message__retry:hover:not(:disabled) {
+  background: rgba(44, 110, 166, 0.08);
+}
+
+.message__retry:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Индикатор «Обработка запроса» с тремя точками */
+.message--pending {
+  color: var(--color-muted);
+}
+
+.typing {
+  display: inline-flex;
+  gap: calc(3 * var(--u));
+  margin-left: calc(4 * var(--u));
+  vertical-align: baseline;
+}
+
+.typing span {
+  width: calc(4 * var(--u));
+  height: calc(4 * var(--u));
+  border-radius: 50%;
+  background: currentColor;
+  animation: typing 1.2s infinite ease-in-out;
+}
+
+.typing span:nth-child(2) { animation-delay: 0.15s; }
+.typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing {
+  0%, 60%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+}
+
+.message__slow {
+  display: block;
+  margin-top: calc(4 * var(--u));
+  font-size: var(--fs-small);
+}
+
+/* ==========================================================================
+   Composer (поле вопроса)
+   ========================================================================== */
+.composer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  height: var(--control-height);
+  margin-top: var(--space-40);
+  padding: 0 var(--space-16);
+  border-radius: var(--radius-field);
+  background: var(--color-surface);
+  transition: box-shadow var(--transition-fast);
+}
+
+.composer:focus-within {
+  box-shadow: 0 0 0 2px rgba(44, 110, 166, 0.35);
+}
+
+.composer__field {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--fs-input);
+  font-weight: var(--fw-input);
+  color: var(--color-text);
+}
+
+.composer__field::placeholder {
+  color: var(--color-muted);
+  opacity: 1;
+}
+
+.composer__send {
+  position: relative;
+  display: flex;
+  color: var(--color-primary);
+  border-radius: 4px;
+}
+
+/* Увеличенная область нажатия без изменения визуального размера иконки */
+.composer__send::after {
+  content: "";
+  position: absolute;
+  inset: calc(-12 * var(--u));
+}
+
+/* Во время обработки отправка отключена, черновик можно редактировать */
+.composer__send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ==========================================================================
+   Подсказка демо-режима под полем ввода
+   ========================================================================== */
+/* Высота подсказки (6 + 14 = 20px) вычитается из нижнего отступа экрана,
+   чтобы поле ввода стояло на месте из макета */
+.composer-hint {
+  flex-shrink: 0;
+  margin-top: calc(6 * var(--u));
+  font-size: var(--fs-small);
+  line-height: calc(14 * var(--u));
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.composer-hint__link {
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.composer-hint__error {
+  display: none;
+  font-weight: 500;
+  color: var(--color-danger);
+}
+
+.composer-hint.is-error .composer-hint__text,
+.composer-hint.is-error .composer-hint__link {
+  display: none;
+}
+
+.composer-hint.is-error .composer-hint__error {
+  display: inline;
+}
+
+/* ==========================================================================
+   Desktop: окно не вытянуто вертикально и не уже 700px
+   ========================================================================== */
+@media (min-width: 700px) and (min-aspect-ratio: 7/10) {
+  body {
+    padding: 0;
+  }
+
+  .topbar,
+  .switcher--topbar,
+  .sidebar-overlay {
+    display: none;
+  }
+
+  .sidebar,
+  .sidebar--open {
+    max-width: none;
+    visibility: visible;
+    transform: none;
+    box-shadow: none;
+    transition: none;
+  }
+
+  .main {
+    margin-left: var(--sidebar-width);
+  }
+
+  .main__column {
+    width: min(var(--column-width), 100% - 2 * var(--space-10));
+    margin: 0 auto;
+    padding: 0;
+    /* 40px макета минус 20px подсказки демо-режима */
+    padding-bottom: var(--space-20);
+  }
+
+  /* Стартовое состояние: блок от верха, в макете отступ 240px при высоте 1024px */
+  .welcome {
+    margin-top: clamp(var(--space-40), 23.4vh, 240px);
+  }
+
+  /* Переписка: справа от боковой панели, текст в колонке шириной как у поля ввода */
+  .conversation {
+    --chat-gap-top: var(--space-40);
+    --chat-fade: 40px;
+    --conversation-inline: calc((100vw - var(--sidebar-width) - min(var(--column-width), 100vw - var(--sidebar-width) - 2 * var(--space-10))) / 2);
+    left: var(--sidebar-width);
+  }
+}
+
+@media (min-width: 700px) and (min-aspect-ratio: 7/10) and (pointer: fine) {
+  .conversation {
+    padding-right: calc(var(--conversation-inline) - var(--scrollbar-size));
+  }
+
+  .welcome__title {
+    margin: 0 0 var(--space-40);
+  }
+}
+
+/* ==========================================================================
+   Scrollbars
+   WebKit/Blink (Chrome, Edge, Safari) — через ::-webkit-scrollbar,
+   Firefox — через стандартные свойства (только там, где нет ::-webkit-scrollbar,
+   иначе Chrome 121+ игнорирует точную ширину)
+   ========================================================================== */
+.main::-webkit-scrollbar,
+.conversation::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+.main::-webkit-scrollbar-track,
+.conversation::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+.main::-webkit-scrollbar-thumb,
+.conversation::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb {
+  border-radius: calc(var(--scrollbar-size) / 2);
+  background: var(--scrollbar-thumb);
+}
+
+.main::-webkit-scrollbar-thumb:hover,
+.conversation::-webkit-scrollbar-thumb:hover,
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.main::-webkit-scrollbar-button,
+.conversation::-webkit-scrollbar-button,
+.sidebar::-webkit-scrollbar-button {
+  display: none;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .main,
+  .conversation {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  .sidebar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--color-surface);
+  }
+}
+
+/* ==========================================================================
+   Reduced Motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .typing span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
