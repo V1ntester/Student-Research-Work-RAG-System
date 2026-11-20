@@ -13,7 +13,6 @@
 <body>
   <!--
     Предварительный интерфейс по макету (Web/figma-nodes.json, view.fig).
-    Демо-режим: ответы имитирует заглушка API в script.js, база знаний не подключена.
     Выбор параметров — визуальная заглушка. Чаты живут только в памяти вкладки.
     Состояния экрана: data-state="empty" (стартовый) и "chat" (переписка).
   -->
@@ -119,8 +118,8 @@
 
       <!-- Подсказка для проверяющего; на время ошибки ввода заменяется сообщением -->
       <p class="composer-hint" id="composerHint" role="status">
-        <span class="composer-hint__text">Демо: ответы имитируются.</span>
-        <button class="composer-hint__link" type="button" data-action="open-guide">Кодовые слова для проверки</button>
+        <span class="composer-hint__text">Учебная база знаний.</span>
+        <button class="composer-hint__link" type="button" data-action="open-guide">Как пользоваться чатом</button>
         <span class="composer-hint__error" id="composerError"></span>
       </p>
     </div>
