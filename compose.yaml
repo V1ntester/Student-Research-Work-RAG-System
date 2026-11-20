@@ -1,0 +1,28 @@
+services:
+  frontend:
+    build: ./Web
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backend:
+    build: ./backend
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
+      RAG_TOP_K: ${RAG_TOP_K:-5}
+    volumes:
+      - ./data/corpus:/data/corpus:ro
+      - indexes:/data/indexes
+      - ./evaluation:/evaluation:ro
+      - ./reports:/reports
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/health', timeout=2).close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+
+volumes:
+  indexes:

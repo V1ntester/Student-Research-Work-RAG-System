@@ -1,13 +1,3 @@
-/**
- * Предварительный интерфейс с имитацией чата.
- * Vanilla JS - no dependencies.
- *
- * База знаний не подключена: ответы формирует mockChatQuery() по контракту
- * API-CHAT-001 (docs/backend/api.md). Исход выбирается по кодовым словам,
- * их список показан в чате «Как проверить демо». Чаты живут только в памяти
- * вкладки и очищаются перезагрузкой (BEH-CHAT-013).
- */
-
 (function() {
   'use strict';
 
@@ -107,147 +97,30 @@
     }
   });
 
-  /* ------------------------------------------------------------------------
-     Demo API stub (API-CHAT-001)
-     Для подключения Backend заменить на:
-     fetch('/api/chat/query', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify({ question, mode }) })
-     ------------------------------------------------------------------------ */
   const MODES = { ask: 'Спросить', sell: 'Продавать' };
+  const GUIDE_TEXT = 'В режиме «Спросить» доступны учебные регламенты, в режиме «Продавать» — материалы для переговоров. Задайте самостоятельный вопрос. Источники под ответом можно раскрыть и сверить с текстом.';
 
-  // Демонстрационные задержки. Настоящие UI_WAIT_HINT_MS и таймауты не выбраны (OPEN-008).
-  const DEMO_TIMING = { answerMs: 1200, waitHintMs: 2500, slowAnswerMs: 5000 };
-
-  const DEMO_NOTE = '\n\nЭто демонстрационный ответ: база знаний не подключена, сведения вымышлены.';
-
-  const ANSWERS = {
-    ask: 'Чтобы забронировать квартиру, проверьте в системе учёта, что объект свободен, ' +
-      'зафиксируйте данные клиента и оформите заявку на бронь. Срок бесплатной брони ' +
-      'и перечень документов задаёт внутренний регламент компании.',
-    sell: 'Если клиент говорит «дорого», уточните, с чем он сравнивает цену, и покажите ' +
-      'ценность объекта: расположение, сроки сдачи, планировку, условия оплаты. ' +
-      'Предложите рассчитать ежемесячный платёж по доступным программам.'
-  };
-
-  const OUTCOME_MESSAGES = {
-    partial: 'Подтверждено: заявку на бронь оформляет менеджер, который ведёт клиента.\n\n' +
-      'Не найдено: срок бесплатной брони — этих сведений в доступных материалах нет. ' +
-      'Уточните у руководителя отдела.',
-    insufficient: 'В доступных материалах не найдены сведения для ответа. ' +
-      'Уточните объект или формулировку вопроса.',
-    clarification: 'Вопрос подходит к нескольким объектам. Укажите жилой комплекс и корпус ' +
-      'и задайте вопрос заново полностью: предыдущие сообщения при поиске не учитываются.',
-    conflict: 'В материалах есть несовместимые сведения: в одном документе срок бесплатной брони — ' +
-      '3 дня, в другом — 7 дней. Система не выбирает вариант сама. ' +
-      'Уточните актуальное правило у владельца регламента.'
-  };
-
-  const OUTCOME_REASONS = {
-    answer: null,
-    partial: 'incomplete_context',
-    insufficient: 'no_candidates',
-    clarification: 'ambiguous_question',
-    conflict: 'conflicting_context'
-  };
-
-  // Кодовые слова: начало слова, любые окончания («ошибка», «ошибку»…).
-  // wholeWord — только отдельное слово («долго», но не «долгосрочный»). Порядок — приоритет.
-  const KEYWORDS = [
-    { stem: 'нет связи', scenario: 'network' },
-    { stem: 'ошибк', scenario: 'error' },
-    { stem: 'нет данных', scenario: 'insufficient' },
-    { stem: 'частичн', scenario: 'partial' },
-    { stem: 'уточн', scenario: 'clarification' },
-    { stem: 'противореч', scenario: 'conflict' },
-    { stem: 'долго', scenario: 'slow', wholeWord: true }
-  ];
-
-  function detectScenario(question) {
-    const text = question.toLowerCase().replace(/ё/g, 'е');
-    for (const keyword of KEYWORDS) {
-      const pattern = '(^|[^а-яa-z])' + keyword.stem + (keyword.wholeWord ? '($|[^а-яa-z])' : '');
-      if (new RegExp(pattern).test(text)) {
-        return keyword.scenario;
-      }
-    }
-    return 'answer';
-  }
-
-  let requestSeq = 0;
-
-  /**
-   * Имитация POST /api/chat/query.
-   * resolve — успешный envelope (HTTP 200); reject — HTTP-ошибка или сбой сети.
-   * options.recovered: повтор после ошибки имитирует восстановление сервиса.
-   */
-  function mockChatQuery(request, options) {
-    const scenario = options && options.recovered ? 'answer' : detectScenario(request.question);
-    const requestId = 'demo-request-' + (++requestSeq);
-    const delay = scenario === 'slow' ? DEMO_TIMING.slowAnswerMs : DEMO_TIMING.answerMs;
-
-    return new Promise(function(resolve, reject) {
-      setTimeout(function() {
-        if (scenario === 'network') {
-          reject(new TypeError('Failed to fetch'));
-          return;
-        }
-        if (scenario === 'error') {
-          reject({
-            status: 503,
-            body: {
-              request_id: requestId,
-              error: { code: 'LLM_UNAVAILABLE', message: 'Сервис ответа временно недоступен. Можно повторить вопрос.' }
-            }
-          });
-          return;
-        }
-
-        const outcome = scenario === 'slow' ? 'answer' : scenario;
-        resolve({
-          request_id: requestId,
-          mode: request.mode,
-          index_version: 'demo-' + request.mode,
-          outcome: outcome,
-          reason: OUTCOME_REASONS[outcome],
-          message: outcome === 'answer' ? ANSWERS[request.mode] + DEMO_NOTE : OUTCOME_MESSAGES[outcome],
-          // Источники отложены (M-06 в docs/interface.md)
-          sources: []
-        });
-      }, delay);
+  async function queryBackend(question, mode) {
+    const response = await fetch('/api/chat/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, mode }),
+      signal: AbortSignal.timeout(55000)
     });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw { status: response.status, body };
+    }
+    return response.json();
   }
-
-  /* ------------------------------------------------------------------------
-     Chats: только в памяти вкладки
-     ------------------------------------------------------------------------ */
-  const GUIDE_TEXT = [
-    'Это демонстрационная версия интерфейса. База знаний не подключена: ответы имитируются, сведения в них вымышлены.',
-    '',
-    'Задайте любой вопрос — придёт обычный демо-ответ. Переключатель «Спросить / Продавать» выбирает базу знаний, из которой «отвечает» система; режим запоминается в момент отправки.',
-    '',
-    'Кодовые слова (в любом месте вопроса) включают другие исходы:',
-    '• «частично» — частичный ответ;',
-    '• «нет данных» — недостаточно сведений;',
-    '• «уточнить» — система просит уточнить вопрос;',
-    '• «противоречие» — противоречивые сведения в материалах;',
-    '• «долго» — долгая обработка с подсказкой об ожидании;',
-    '• «ошибка» — ошибка сервиса и кнопка «Повторить»;',
-    '• «нет связи» — результат не получен и кнопка «Повторить».',
-    '',
-    'Пример: «Какой срок брони? нет данных».',
-    '',
-    'Повтор после ошибки имитирует восстановление сервиса и даёт обычный ответ. Пустой вопрос не отправляется. Пока идёт обработка, отправка следующего вопроса недоступна. «Новый чат» создаёт пустой чат; перезагрузка страницы очищает всю переписку.',
-    '',
-    'У чатов в списке есть меню «⋯» (на компьютере появляется при наведении, в телефонном виде видно всегда): «Переименовать» и «Удалить». Чат с перепиской удаляется после подтверждения.'
-  ].join('\n');
 
   const chats = [
     {
       id: 'guide',
-      title: 'Как проверить демо',
+      title: 'Как пользоваться чатом',
       pending: false,
       messages: [
-        { role: 'user', text: 'Как проверить демо-версию?' },
+        { role: 'user', text: 'Как пользоваться чатом?' },
         { role: 'assistant', outcome: 'guide', text: GUIDE_TEXT }
       ]
     },
@@ -309,17 +182,17 @@
   };
 
   function toResultMessage(response) {
-    return { outcome: response.outcome, text: response.message };
+    return { outcome: response.outcome, text: response.message, sources: response.sources };
   }
 
   function toFailureMessage(failure) {
     if (failure && failure.status) {
-      return { outcome: 'error', text: failure.body.error.message };
+      return { outcome: 'error', text: failure.body.error?.message || 'Ошибка сервера. Повторите запрос.' };
     }
     return { outcome: 'result_unknown', text: 'Не удалось получить результат. Запрос мог быть обработан.' };
   }
 
-  function sendQuestion(chat, question, mode, recovered) {
+  function sendQuestion(chat, question, mode) {
     if (chat.pending) return;
 
     chat.messages.push({ role: 'user', text: question });
@@ -332,15 +205,16 @@
     const slowTimer = setTimeout(function() {
       reply.slow = true;
       render();
-    }, DEMO_TIMING.waitHintMs);
+    }, 2500);
 
-    mockChatQuery({ question: question, mode: mode }, { recovered: recovered })
+    queryBackend(question, mode)
       .then(toResultMessage, toFailureMessage)
       .then(function(result) {
         clearTimeout(slowTimer);
         reply.pending = false;
         reply.outcome = result.outcome;
         reply.text = result.text;
+        reply.sources = result.sources;
         chat.pending = false;
         render();
       });
@@ -361,7 +235,7 @@
     const chat = activeChat();
     if (chat.pending) return;
 
-    // RULE-INPUT-001: крайние пробелы удаляются. Лимит длины не задан (OPEN-008)
+    // RULE-INPUT-001: крайние пробелы удаляются. Сервер проверяет длину вопроса
     const question = questionInput.value.trim();
     if (!question) {
       showInputError('Введите вопрос');
@@ -371,7 +245,7 @@
 
     hideInputError();
     questionInput.value = '';
-    sendQuestion(chat, question, currentMode, false);
+    sendQuestion(chat, question, currentMode);
   });
 
   questionInput.addEventListener('input', hideInputError);
@@ -382,7 +256,7 @@
     const chat = activeChat();
     const message = chat.messages[Number(retry.dataset.retry)];
     // Повтор — новый запрос исходного вопроса в исходном режиме; прежний исход сохраняется
-    sendQuestion(chat, message.question, message.mode, true);
+    sendQuestion(chat, message.question, message.mode);
   });
 
   /* ------------------------------------------------------------------------
@@ -416,10 +290,16 @@
     const isFailure = message.outcome === 'error' || message.outcome === 'result_unknown';
     const node = el('div', 'message message--answer' + (isFailure ? ' message--error' : ''));
     const meta = message.outcome === 'guide'
-      ? 'Инструкция · демо'
-      : OUTCOME_LABELS[message.outcome] + ' · база «' + MODES[message.mode] + '» · демо';
+      ? 'Инструкция'
+      : OUTCOME_LABELS[message.outcome] + ' · база «' + MODES[message.mode] + '»';
     node.append(el('span', 'message__meta', meta), message.text);
 
+    for (const source of message.sources || []) {
+      const details = el('details', 'message__source');
+      details.append(el('summary', '', '[' + source.citation_id + '] ' + source.document_id + ' · ' + source.title));
+      details.append(el('p', '', source.excerpt));
+      node.append(details);
+    }
     if (isFailure) {
       const retry = el('button', 'message__retry', 'Повторить');
       retry.type = 'button';
